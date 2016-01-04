@@ -16,9 +16,7 @@ function php_filter_audit_drush_command() {
  * Drush command callback for Block Benchmark.
  */
 function drush_php_filter_audit() {
-  if (module_exists('php')) {
-    drush_print('PHP module is enabled - not a good start..');
-  }
+  _php_filter_audit_run_phpmodule();
 
   drush_print('Checking field API for PHP code.');
   _php_filter_audit_run_fields();
@@ -30,6 +28,29 @@ function drush_php_filter_audit() {
 
   drush_print('Checking blocks for PHP code.');
   _php_filter_audit_run_blocks();
+}
+
+/**
+ * Helper function which checks for php.module and dependent modules.
+ */
+function _php_filter_audit_run_phpmodule() {
+  if (module_exists('php')) {
+    drush_print('php.module is enabled - checking for enabled dependent modules.');
+
+    $module_data = system_rebuild_module_data();
+    foreach ($module_data['php']->required_by as $dependent => $dependent_data) {
+      if (module_exists($dependent)) {
+        drush_print(' - ' . $dependent . '.module is enabled and depends on php.module.');
+      }
+    }
+
+  }
+  else if ($path = drupal_get_path('module', 'php')) {
+    drush_print('php.module is not enabled, but is still in the Drupal codebase. It is recommended to delete the module directory: "' . $path . '"');
+  }
+  else {
+    drush_print('php.module is not present in the codebase.');
+  }
 }
 
 /**
