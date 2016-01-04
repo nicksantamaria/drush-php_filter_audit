@@ -1,7 +1,5 @@
 <?php
 
-define('PHP_FILTER_AUDIT_FORMAT', 'php_code');
-
 /**
  * Implementation of hook_drush_command().
  */
@@ -68,7 +66,7 @@ function _php_filter_audit_run_fields() {
   if (!empty($fields_to_check)) {
     foreach ($fields_to_check as $field_name) {
       $q = new EntityFieldQuery();
-      $q->fieldCondition($field_name, 'format', PHP_FILTER_AUDIT_FORMAT);
+      $q->fieldCondition($field_name, 'format', _php_filter_audit_get_formats(), 'IN');
       $rows = $q->execute();
       if (!empty($rows)) {
         drush_print(format_string(' - PHP code detected in !field_name', array(
@@ -86,10 +84,20 @@ function _php_filter_audit_run_fields() {
  * Helper function which checks views config for php code.
  */
 function _php_filter_audit_run_views() {
-  $result = db_query("SELECT * FROM {views_display} WHERE display_options LIKE '%" . PHP_FILTER_AUDIT_FORMAT . "%'");
-  $views_detected = array();
+  $query = db_select('views_display', 'vd');
+  $query->fields('vd', array());
 
-  foreach ($result->fetchAll() as $display) {
+  // Check 1: Check for text using filter formats.
+  $or = db_or();
+  foreach (_php_filter_audit_get_formats() as $format) {
+    $or->condition('vd.display_options', '%' . db_like($format) . '%', 'LIKE');
+  }
+
+  $query->condition($or);
+  $result = $query->execute();
+
+  $views_detected = array();
+  foreach ($result as $display) {
     $view = db_query("SELECT name FROM {views_view} WHERE vid = :id", array(':id' => $display->vid))->fetch();
     $views_detected[$view->name][] = $display->id;
   }
@@ -122,11 +130,27 @@ function _php_filter_audit_run_blocks() {
   }
 
   // Check custom block content.
-  $result = db_query("SELECT * FROM {block_custom} WHERE format = '" . PHP_FILTER_AUDIT_FORMAT . "'");
+  $result = db_query("SELECT * FROM {block_custom} WHERE format IN (:formats)", array(
+    ':formats' => _php_filter_audit_get_formats(),
+  ));
   foreach ($result->fetchAll() as $row) {
     drush_print(format_string(' - PHP code detected in custom block "!info", delta "!delta".', array(
       '!info' => $row->info,
       '!delta' => $row->bid,
     )));
   }
+}
+
+/**
+ * Returns list of input formats using the php_code filter.
+ */
+function _php_filter_audit_get_formats() {
+  $formats = array();
+
+  $result = db_query("SELECT DISTINCT format FROM {filter} WHERE module = 'php' AND name = 'php_code'");
+  foreach ($result->fetchAll() as $row) {
+    $formats[$row->format] = $row->format;
+  }
+
+  return $formats;
 }
