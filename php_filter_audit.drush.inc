@@ -93,6 +93,10 @@ function _php_filter_audit_run_views() {
     $or->condition('vd.display_options', '%' . db_like($format) . '%', 'LIKE');
   }
 
+  // Check 2: Check for handlers using php code.
+  $or->condition('vd.display_options', '%' . db_like('"php"') . '%', 'LIKE');
+  $or->condition('vd.display_options', '%' . db_like('"code"') . '%', 'LIKE');
+
   $query->condition($or);
   $result = $query->execute();
 
