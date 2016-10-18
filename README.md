@@ -1,4 +1,4 @@
-# Drush Block Benchmark
+# Drush PHP Filter Audit
 
 Quick and dirty drush plugin to check a drupal implementation for code processed by PHP filter format.
 
